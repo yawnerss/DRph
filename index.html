@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HACKED BY DARK ROSE PHILIPPINES</title>
+
+<script defer src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;background:#000;height:100%;width:100%}
+  canvas{display:block;image-rendering:pixelated}
+
+  body::after{
+    content:"";position:fixed;inset:0;
+    background-image:linear-gradient(rgba(0,0,0,.12) 50%,transparent 50%);
+    background-size:100% 4px;pointer-events:none;
+    animation:flick .16s steps(2,end) infinite;
+  }
+  @keyframes flick{0%,100%{opacity:.94}50%{opacity:1}}
+
+  :root{--font:'Press Start 2P',monospace;}
+
+  /* --- CENTERED WRAPPER --- */
+  .center-wrapper{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    pointer-events:none;z-index:2;
+    padding:2vh 0;
+    box-sizing:border-box;
+  }
+
+  /* --- NAGŁÓWKI (W SRODKU - Mniejsze) --- */
+  #title{
+    font:900 clamp(16px,4vw,60px)/1.2 var(--font);
+    color:#ff0040;text-align:center;
+    animation:glitch 0.8s steps(1) infinite;
+    margin-bottom:0.5vh;
+    max-width:95vw;
+  }
+  @keyframes glitch{
+    0%,100%{transform:skewX(0deg)}
+    10%{transform:skewX(1.5deg)}
+    20%{transform:skewX(-1.5deg)}
+    30%{transform:skewX(0deg)}
+  }
+
+  #subtitle{
+    font:700 clamp(10px,2vw,36px) var(--font);
+    color:#ffd800;text-align:center;margin-top:0.5vh;
+    max-width:95vw;
+  }
+
+  #subtitle2{
+    font:700 clamp(9px,1.8vw,30px) var(--font);
+    color:#ff8c00;text-align:center;margin-top:0.3vh;
+    max-width:95vw;
+  }
+
+  #gameover{
+    font:900 clamp(20px,5vw,80px) var(--font);
+    color:#ff0040;text-align:center;display:none;
+    animation:glitch 0.4s steps(1) infinite;
+    max-width:95vw;
+  }
+
+  #again{
+    font:700 clamp(8px,1.5vw,28px) var(--font);
+    color:#ffd800;text-align:center;margin-top:1vh;display:none;
+    max-width:95vw;
+  }
+
+  /* --- OBRYS NAGŁÓWKÓW --- */
+  #title,#subtitle,#subtitle2,#gameover,#again{
+    -webkit-text-stroke:2px #000;
+    text-shadow:
+      2px  2px 0 #000,-2px  2px 0 #000,
+      2px -2px 0 #000,-2px -2px 0 #000,
+      0    2px 0 #000, 0   -2px 0 #000,
+      2px   0  0 #000,-2px  0  0 #000,
+      0 0 20px rgba(255,0,64,0.3);
+    paint-order:stroke fill;
+  }
+
+  /* --- NYAN CAT GIF CONTAINER --- */
+  #nyan-container{
+    pointer-events:auto;
+    cursor:pointer;
+    margin-top:1vh;
+    display:block;
+    image-rendering:pixelated;
+    max-width:95vw;
+  }
+
+  #nyan-container img{
+    display:block;
+    image-rendering:pixelated;
+    width:clamp(120px,25vw,300px);
+    height:auto;
+    border:3px solid #ff0040;
+    box-shadow:0 0 20px rgba(255,0,64,0.3), 0 0 40px rgba(255,0,64,0.15);
+    transition:all 0.3s;
+    border-radius:6px;
+    margin:0 auto;
+  }
+
+  #nyan-container img:hover{
+    box-shadow:0 0 40px rgba(255,0,64,0.6), 0 0 80px rgba(255,0,64,0.3);
+    transform:scale(1.02);
+  }
+
+  /* --- FOOTER (DÓŁ) --- */
+  #footer{
+    position:fixed;bottom:1.5vh;left:0;width:100%;
+    font:400 clamp(6px,0.8vw,16px) var(--font);
+    color:#444;text-align:center;pointer-events:none;z-index:2;
+    text-shadow:0 0 10px rgba(255,0,64,0.15);
+    padding:0 2vw;
+    box-sizing:border-box;
+    letter-spacing:1px;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="center-wrapper">
+  <!-- GŁÓWNY TEKST -->
+  <div id="title">HACKED BY<br>DARK ROSE<br>PHILIPPINES</div>
+  <div id="subtitle">YOUR SYSTEM HAS BEEN</div>
+  <div id="subtitle2">COMPROMISED</div>
+
+  <!-- GAME OVER (ukryty) -->
+  <div id="gameover">PWNED!</div>
+  <div id="again">click / tap – play again</div>
+
+  <!-- NYAN CAT GIF (KLIKALNY) -->
+  <div id="nyan-container">
+    <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fgifdb.com%2Fimages%2Fhigh%2Fnyan-cat-rbnlqzxbgvei37v8.gif&f=1&nofb=1&ipt=37e718caac8122c9297140d23137ceb9a04667f734bb13d33b9eac91c83493c8" 
+         alt="Nyan Cat" 
+         draggable="false"
+         loading="lazy">
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div id="footer">DARK ROSE PHILIPPINES © 2026 — WE OWN YOUR NETWORK</div>
+
+<script defer>
+/* ---------- tło (p5) ---------- */
+const pal=["#ff0040","#ff8000","#ffd800","#00e400","#00a0ff","#7f00ff","#ff66ff","#ffffff"];
+let shift=0,state=0;
+function setup(){createCanvas(windowWidth,windowHeight);}
+function draw(){
+  if(frameCount%180===0) shift=int(random(pal.length));
+  const w=max(6,width/48);
+  for(let x=0;x<width;x+=w){
+    fill(pal[(int(x/w)+shift)%pal.length]); noStroke(); rect(x,0,w,height);
+  }
+}
+function windowResized(){resizeCanvas(windowWidth,windowHeight);}
+
+/* ---------- interakcja ---------- */
+const container = document.getElementById('nyan-container');
+const sub = document.getElementById('subtitle');
+const sub2 = document.getElementById('subtitle2');
+const go = document.getElementById('gameover');
+const ag = document.getElementById('again');
+
+container.onclick =()=>{state=1;toggle();}
+addEventListener('pointerdown',()=>{if(state===1){state=0;toggle();}});
+
+function toggle(){
+  const intro = state===0;
+  container.style.display = intro ? 'block' : 'none';
+  sub.style.display = intro ? 'block' : 'none';
+  sub2.style.display= intro ? 'block' : 'none';
+  go.style.display  = intro ? 'none'  : 'block';
+  ag.style.display  = intro ? 'none'  : 'block';
+}
+toggle();
+</script>
+</body>
+</html>
