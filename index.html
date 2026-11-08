@@ -1,184 +1,435 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>HACKED BY DARK ROSE PHILIPPINES</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HACKED BY DARK ROSE PHILIPPINES</title>
 
-<script defer src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
-<style>
-  html,body{margin:0;padding:0;overflow:hidden;background:#000;height:100%;width:100%}
-  canvas{display:block;image-rendering:pixelated}
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body::after{
-    content:"";position:fixed;inset:0;
-    background-image:linear-gradient(rgba(0,0,0,.12) 50%,transparent 50%);
-    background-size:100% 4px;pointer-events:none;
-    animation:flick .16s steps(2,end) infinite;
-  }
-  @keyframes flick{0%,100%{opacity:.94}50%{opacity:1}}
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: #050505;
+    }
 
-  :root{--font:'Press Start 2P',monospace;}
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
 
-  /* --- CENTERED WRAPPER --- */
-  .center-wrapper{
-    position:fixed;top:0;left:0;width:100%;height:100%;
-    display:flex;flex-direction:column;justify-content:center;align-items:center;
-    pointer-events:none;z-index:2;
-    padding:2vh 0;
-    box-sizing:border-box;
-  }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: linear-gradient(rgba(0, 0, 0, 0.18) 50%, transparent 50%);
+      background-size: 100% 4px;
+      pointer-events: none;
+      animation: flick 0.16s steps(2, end) infinite;
+      z-index: 1;
+    }
 
-  /* --- NAGŁÓWKI (W SRODKU - Mniejsze) --- */
-  #title{
-    font:900 clamp(16px,4vw,60px)/1.2 var(--font);
-    color:#ff0040;text-align:center;
-    animation:glitch 0.8s steps(1) infinite;
-    margin-bottom:0.5vh;
-    max-width:95vw;
-  }
-  @keyframes glitch{
-    0%,100%{transform:skewX(0deg)}
-    10%{transform:skewX(1.5deg)}
-    20%{transform:skewX(-1.5deg)}
-    30%{transform:skewX(0deg)}
-  }
+    @keyframes flick {
+      0%, 100% { opacity: 0.92; }
+      50% { opacity: 1; }
+    }
 
-  #subtitle{
-    font:700 clamp(10px,2vw,36px) var(--font);
-    color:#ffd800;text-align:center;margin-top:0.5vh;
-    max-width:95vw;
-  }
+    :root {
+      --font: 'Press Start 2P', monospace;
+      --ph-red: #ce1126;
+      --ph-yellow: #fcd116;
+      --ph-white: #ffffff;
+    }
 
-  #subtitle2{
-    font:700 clamp(9px,1.8vw,30px) var(--font);
-    color:#ff8c00;text-align:center;margin-top:0.3vh;
-    max-width:95vw;
-  }
+    /* ---- V MASK (binary-styled) ---- */
+    #mask-container {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.32;
+      filter: grayscale(1) contrast(1.4) brightness(0.7);
+    }
 
-  #gameover{
-    font:900 clamp(20px,5vw,80px) var(--font);
-    color:#ff0040;text-align:center;display:none;
-    animation:glitch 0.4s steps(1) infinite;
-    max-width:95vw;
-  }
+    #mask-container img {
+      display: block;
+      width: clamp(200px, 45vw, 520px);
+      height: auto;
+      image-rendering: pixelated;
+    }
 
-  #again{
-    font:700 clamp(8px,1.5vw,28px) var(--font);
-    color:#ffd800;text-align:center;margin-top:1vh;display:none;
-    max-width:95vw;
-  }
+    /* binary rain canvas sits on top of the mask */
+    #binary-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
 
-  /* --- OBRYS NAGŁÓWKÓW --- */
-  #title,#subtitle,#subtitle2,#gameover,#again{
-    -webkit-text-stroke:2px #000;
-    text-shadow:
-      2px  2px 0 #000,-2px  2px 0 #000,
-      2px -2px 0 #000,-2px -2px 0 #000,
-      0    2px 0 #000, 0   -2px 0 #000,
-      2px   0  0 #000,-2px  0  0 #000,
-      0 0 20px rgba(255,0,64,0.3);
-    paint-order:stroke fill;
-  }
+    /* ---- SWAYING STARS ---- */
+    .star-field {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 40vh;
+      pointer-events: none;
+      z-index: 3;
+    }
 
-  /* --- NYAN CAT GIF CONTAINER --- */
-  #nyan-container{
-    pointer-events:auto;
-    cursor:pointer;
-    margin-top:1vh;
-    display:block;
-    image-rendering:pixelated;
-    max-width:95vw;
-  }
+    .sway-star {
+      position: absolute;
+      font-size: clamp(28px, 6vw, 80px);
+      line-height: 1;
+      font-family: var(--font);
+      filter: drop-shadow(0 0 15px currentColor) drop-shadow(0 0 35px currentColor);
+      animation: sway 3.6s ease-in-out infinite alternate;
+    }
 
-  #nyan-container img{
-    display:block;
-    image-rendering:pixelated;
-    width:clamp(120px,25vw,300px);
-    height:auto;
-    border:3px solid #ff0040;
-    box-shadow:0 0 20px rgba(255,0,64,0.3), 0 0 40px rgba(255,0,64,0.15);
-    transition:all 0.3s;
-    border-radius:6px;
-    margin:0 auto;
-  }
+    .star-1 { color: #ff1a1a; top: 4vh;  left: 3vw;  animation-delay: 0s; }
+    .star-2 { color: #ff1a1a; top: 14vh; left: 8vw;  animation-delay: 0.9s; }
+    .star-3 { color: #ffffff; top: 4vh;  right: 3vw; animation-delay: 1.8s; }
+    .star-4 { color: #ffffff; top: 14vh; right: 8vw; animation-delay: 2.7s; }
 
-  #nyan-container img:hover{
-    box-shadow:0 0 40px rgba(255,0,64,0.6), 0 0 80px rgba(255,0,64,0.3);
-    transform:scale(1.02);
-  }
+    @keyframes sway {
+      0%   { transform: translateY(0) rotate(-6deg) scale(1); }
+      50%  { transform: translateY(-10px) rotate(3deg) scale(1.06); }
+      100% { transform: translateY(4px) rotate(-4deg) scale(0.97); }
+    }
 
-  /* --- FOOTER (DÓŁ) --- */
-  #footer{
-    position:fixed;bottom:1.5vh;left:0;width:100%;
-    font:400 clamp(6px,0.8vw,16px) var(--font);
-    color:#444;text-align:center;pointer-events:none;z-index:2;
-    text-shadow:0 0 10px rgba(255,0,64,0.15);
-    padding:0 2vw;
-    box-sizing:border-box;
-    letter-spacing:1px;
-  }
-</style>
+    /* ---- CENTERED WRAPPER ---- */
+    .center-wrapper {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+      z-index: 2;
+      padding: 2vh 0;
+    }
+
+    #title {
+      font: 900 clamp(16px, 5vw, 72px)/1.2 var(--font);
+      color: var(--ph-red);
+      text-align: center;
+      animation: glitch 0.8s steps(1) infinite;
+      margin-bottom: 0.5vh;
+      max-width: 95vw;
+      letter-spacing: 2px;
+    }
+
+    #subtitle {
+      font: 700 clamp(10px, 2.5vw, 40px) var(--font);
+      color: var(--ph-yellow);
+      text-align: center;
+      margin-top: 0.5vh;
+      max-width: 95vw;
+      letter-spacing: 1px;
+    }
+
+    #subtitle2 {
+      font: 700 clamp(9px, 2vw, 34px) var(--font);
+      color: var(--ph-white);
+      text-align: center;
+      margin-top: 0.3vh;
+      max-width: 95vw;
+      letter-spacing: 1px;
+    }
+
+    #gameover {
+      font: 900 clamp(20px, 6vw, 90px) var(--font);
+      color: var(--ph-red);
+      text-align: center;
+      display: none;
+      animation: glitch 0.4s steps(1) infinite;
+      max-width: 95vw;
+      letter-spacing: 3px;
+    }
+
+    #again {
+      font: 700 clamp(8px, 1.8vw, 30px) var(--font);
+      color: var(--ph-yellow);
+      text-align: center;
+      margin-top: 1vh;
+      display: none;
+      max-width: 95vw;
+    }
+
+    #title, #subtitle, #subtitle2, #gameover, #again {
+      -webkit-text-stroke: 2px #000;
+      text-shadow:
+        2px 2px 0 #000, -2px 2px 0 #000,
+        2px -2px 0 #000, -2px -2px 0 #000,
+        0 2px 0 #000, 0 -2px 0 #000,
+        2px 0 0 #000, -2px 0 0 #000,
+        0 0 30px rgba(255, 0, 0, 0.55);
+      paint-order: stroke fill;
+    }
+
+    #nyan-container {
+      pointer-events: auto;
+      cursor: pointer;
+      margin-top: 1.2vh;
+      display: block;
+      max-width: 95vw;
+      transition: transform 0.2s;
+    }
+
+    #nyan-container:hover { transform: scale(1.03); }
+
+    #nyan-container img {
+      display: block;
+      image-rendering: pixelated;
+      width: clamp(110px, 22vw, 280px);
+      height: auto;
+      border: 3px solid var(--ph-red);
+      box-shadow:
+        0 0 25px rgba(255, 0, 0, 0.5),
+        0 0 50px rgba(0, 56, 168, 0.35);
+      border-radius: 8px;
+      margin: 0 auto;
+      transition: all 0.3s;
+    }
+
+    #nyan-container img:hover {
+      box-shadow:
+        0 0 45px rgba(255, 0, 0, 0.8),
+        0 0 90px rgba(0, 56, 168, 0.6);
+    }
+
+    #footer {
+      position: fixed;
+      bottom: 1.5vh;
+      left: 0;
+      width: 100%;
+      font: 400 clamp(6px, 0.9vw, 16px) var(--font);
+      color: #3a3a3a;
+      text-align: center;
+      pointer-events: none;
+      z-index: 2;
+      text-shadow: 0 0 12px rgba(255, 0, 0, 0.2);
+      padding: 0 2vw;
+      letter-spacing: 1.5px;
+    }
+
+    @keyframes glitch {
+      0%, 100% { transform: skewX(0deg); }
+      10% { transform: skewX(1.5deg); }
+      20% { transform: skewX(-1.5deg); }
+      30% { transform: skewX(0deg); }
+      40% { transform: skewX(0.8deg); }
+      50% { transform: skewX(-0.8deg); }
+      60% { transform: skewX(0deg); }
+    }
+
+    @media (max-width: 600px) {
+      #title { letter-spacing: 1px; }
+      #footer { font-size: 5px; }
+      .sway-star { font-size: clamp(22px, 10vw, 52px); }
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="center-wrapper">
-  <!-- GŁÓWNY TEKST -->
-  <div id="title">HACKED BY<br>DARK ROSE<br>PHILIPPINES</div>
-  <div id="subtitle">YOUR SYSTEM HAS BEEN</div>
-  <div id="subtitle2">COMPROMISED</div>
-
-  <!-- GAME OVER (ukryty) -->
-  <div id="gameover">PWNED!</div>
-  <div id="again">click / tap – play again</div>
-
-  <!-- NYAN CAT GIF (KLIKALNY) -->
-  <div id="nyan-container">
-    <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fgifdb.com%2Fimages%2Fhigh%2Fnyan-cat-rbnlqzxbgvei37v8.gif&f=1&nofb=1&ipt=37e718caac8122c9297140d23137ceb9a04667f734bb13d33b9eac91c83493c8" 
-         alt="Nyan Cat" 
+  <!-- V for Vendetta mask (binary-styled) -->
+  <div id="mask-container">
+    <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimg-new.cgtrader.com%2Fitems%2F1848469%2Fdfe56a0cbc%2Fv-for-vendetta-mask-3d-model-blend.jpg&f=1&nofb=1&ipt=1f72c2a30e7fcb3b52f6aa152efce16be41aedd6b39946255abe5a07d93fd7c4&ipo=images"
+         alt="V for Vendetta mask"
          draggable="false"
          loading="lazy">
   </div>
-</div>
 
-<!-- FOOTER -->
-<div id="footer">DARK ROSE PHILIPPINES © 2026 — WE OWN YOUR NETWORK</div>
+  <!-- Binary rain overlay (drawn by JS below) -->
+  <canvas id="binary-canvas"></canvas>
 
-<script defer>
-/* ---------- tło (p5) ---------- */
-const pal=["#ff0040","#ff8000","#ffd800","#00e400","#00a0ff","#7f00ff","#ff66ff","#ffffff"];
-let shift=0,state=0;
-function setup(){createCanvas(windowWidth,windowHeight);}
-function draw(){
-  if(frameCount%180===0) shift=int(random(pal.length));
-  const w=max(6,width/48);
-  for(let x=0;x<width;x+=w){
-    fill(pal[(int(x/w)+shift)%pal.length]); noStroke(); rect(x,0,w,height);
-  }
-}
-function windowResized(){resizeCanvas(windowWidth,windowHeight);}
+  <!-- 4 swaying stars -->
+  <div class="star-field" aria-hidden="true">
+    <div class="sway-star star-1">★</div>
+    <div class="sway-star star-2">★</div>
+    <div class="sway-star star-3">★</div>
+    <div class="sway-star star-4">★</div>
+  </div>
 
-/* ---------- interakcja ---------- */
-const container = document.getElementById('nyan-container');
-const sub = document.getElementById('subtitle');
-const sub2 = document.getElementById('subtitle2');
-const go = document.getElementById('gameover');
-const ag = document.getElementById('again');
+  <div class="center-wrapper">
+    <div id="title">HACKED BY<br>DARK ROSE<br>PHILIPPINES</div>
+    <div id="subtitle">YOUR SYSTEM HAS BEEN</div>
+    <div id="subtitle2">COMPROMISED</div>
+    <div id="gameover">PWNED!</div>
+    <div id="again">click / tap – play again</div>
 
-container.onclick =()=>{state=1;toggle();}
-addEventListener('pointerdown',()=>{if(state===1){state=0;toggle();}});
+    <div id="nyan-container">
+      <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fgifdb.com%2Fimages%2Fhigh%2Fnyan-cat-rbnlqzxbgvei37v8.gif&f=1&nofb=1&ipt=37e718caac8122c9297140d23137ceb9a04667f734bb13d33b9eac91c83493c8"
+           alt="Nyan Cat"
+           draggable="false"
+           loading="lazy">
+    </div>
+  </div>
 
-function toggle(){
-  const intro = state===0;
-  container.style.display = intro ? 'block' : 'none';
-  sub.style.display = intro ? 'block' : 'none';
-  sub2.style.display= intro ? 'block' : 'none';
-  go.style.display  = intro ? 'none'  : 'block';
-  ag.style.display  = intro ? 'none'  : 'block';
-}
-toggle();
-</script>
+  <div id="footer">DARK ROSE PHILIPPINES © 2026 — WE OWN YOUR NETWORK</div>
+
+  <script>
+    /* ---------- SCARY BACKGROUND (p5) ---------- */
+    const flagColors = [
+      [0, 56, 168],
+      [206, 17, 38],
+      [252, 209, 22]
+    ];
+    let shift = 0;
+    let fogOffset = 0;
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      noStroke();
+      frameRate(30);
+    }
+
+    function draw() {
+      const topColor = color(8, 6, 10);
+      const bottomColor = color(2, 2, 6);
+      for (let y = 0; y < height; y += 4) {
+        const inter = map(y, 0, height, 0, 1);
+        fill(lerpColor(topColor, bottomColor, inter));
+        rect(0, y, width, 4);
+      }
+
+      fogOffset += 0.003;
+      for (let x = 0; x < width; x += 8) {
+        for (let y = 0; y < height; y += 8) {
+          const n = noise(x * 0.005 + fogOffset, y * 0.005 - fogOffset * 0.7);
+          if (n > 0.55) {
+            fill(60, 20, 40, map(n, 0.55, 0.8, 0, 28));
+            rect(x, y, 8, 8);
+          }
+        }
+      }
+
+      const stripeW = max(6, width / 80);
+      for (let x = 0; x < width; x += stripeW) {
+        const c = flagColors[(floor(x / stripeW) + shift) % flagColors.length];
+        fill(c[0] * 0.12, c[1] * 0.12, c[2] * 0.12, 120);
+        rect(x, 0, stripeW, height);
+      }
+      if (frameCount % 90 === 0) shift = (shift + 1) % flagColors.length;
+
+      const pulse = 0.7 + 0.3 * sin(frameCount * 0.015);
+      const glowRadius = min(width, height) * 0.28 * pulse;
+      for (let r = glowRadius; r > 0; r -= 6) {
+        fill(120, 5, 15, map(r, 0, glowRadius, 18, 0));
+        ellipse(width / 2, height / 2, r * 2, r * 2);
+      }
+      fill(180, 10, 20, 30);
+      ellipse(width / 2, height / 2, glowRadius * 0.25, glowRadius * 0.25);
+      fill(255, 40, 40, 12);
+      ellipse(width / 2, height / 2, glowRadius * 0.1, glowRadius * 0.1);
+
+      push();
+      translate(width / 2, height / 2);
+      rotate(frameCount * 0.001);
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * TWO_PI;
+        const len = min(width, height) * 0.45;
+        stroke(40, 0, 5, 30);
+        strokeWeight(2);
+        line(cos(angle) * len * 0.3, sin(angle) * len * 0.3, cos(angle) * len, sin(angle) * len);
+      }
+      pop();
+
+      noStroke();
+      for (let i = 0; i < 40; i++) {
+        const px = noise(i * 100, frameCount * 0.002) * width * 1.2 - width * 0.1;
+        const py = noise(i * 200, frameCount * 0.0015) * height * 1.2 - height * 0.1;
+        fill(80, 70, 70, random(10, 30));
+        rect(px, py, random(1, 2.5), random(1, 2.5));
+      }
+    }
+
+    function windowResized() { resizeCanvas(windowWidth, windowHeight); }
+
+    /* ---------- BINARY RAIN OVERLAY ---------- */
+    (function binaryRain() {
+      const canvas = document.getElementById('binary-canvas');
+      const ctx = canvas.getContext('2d');
+
+      let cols, drops;
+      const fontSize = 16;
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        cols = Math.floor(canvas.width / fontSize);
+        drops = new Array(cols).fill(0).map(() => Math.random() * -100);
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      function drawBinary() {
+        // slight fade so trails are visible but not too strong
+        ctx.fillStyle = 'rgba(5, 5, 5, 0.08)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = fontSize + 'px "Press Start 2P", monospace';
+        ctx.textBaseline = 'top';
+
+        for (let i = 0; i < cols; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize;
+          const y = drops[i] * fontSize;
+
+          // alternate red / white / dim gray for creepy binary feel
+          const r = Math.random();
+          if (r > 0.92) {
+            ctx.fillStyle = 'rgba(255, 40, 40, 0.85)';   // bright red
+          } else if (r > 0.85) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)'; // white
+          } else {
+            ctx.fillStyle = 'rgba(120, 120, 120, 0.55)'; // dim gray
+          }
+          ctx.fillText(char, x, y);
+
+          if (y > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+          drops[i] += 0.6 + Math.random() * 0.4;
+        }
+
+        requestAnimationFrame(drawBinary);
+      }
+      drawBinary();
+    })();
+
+    /* ---------- INTERACTION ---------- */
+    const container = document.getElementById('nyan-container');
+    const sub  = document.getElementById('subtitle');
+    const sub2 = document.getElementById('subtitle2');
+    const go   = document.getElementById('gameover');
+    const ag   = document.getElementById('again');
+    let state = 0;
+
+    container.onclick = () => { state = 1; toggle(); };
+    addEventListener('pointerdown', () => { if (state === 1) { state = 0; toggle(); } });
+
+    function toggle() {
+      const intro = state === 0;
+      container.style.display = intro ? 'block' : 'none';
+      sub.style.display  = intro ? 'block' : 'none';
+      sub2.style.display = intro ? 'block' : 'none';
+      go.style.display   = intro ? 'none' : 'block';
+      ag.style.display   = intro ? 'none' : 'block';
+    }
+    toggle();
+  </script>
 </body>
 </html>
