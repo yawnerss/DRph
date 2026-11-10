@@ -1,435 +1,474 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HACKED BY DARK ROSE PHILIPPINES</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DARK ROSE · Dark Rose Philippines</title>
+<style>
+  :root {
+    --rose: #e86a8f;
+    --ink: #f4e9ee;
+    --muted: #a98a96;
+    --cyan: #00d0ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #050505;
+    color: var(--ink);
+    font-family: "Courier New", ui-monospace, monospace;
+    overflow: hidden;
+  }
 
-  <script defer src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  /* ===== live TV static ===== */
+  #static {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    image-rendering: pixelated;
+    opacity: 0.22;
+    pointer-events: none;
+    transition: opacity 0.05s;
+  }
+  body.burst #static { opacity: 0.7; }
 
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* scanlines + vignette */
+  .crt {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.45) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.75) 100%);
+  }
+  /* rolling bar like a bad vertical hold */
+  .roll {
+    position: fixed;
+    left: 0; right: 0;
+    height: 18vh;
+    top: -20vh;
+    z-index: 19;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.07), transparent);
+    animation: roll 5.5s linear infinite;
+  }
+  @keyframes roll { to { top: 120vh; } }
 
-    html, body {
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      background: #050505;
+  /* ===== stage (everything that glitches) ===== */
+  #stage {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4vh;
+    padding: 6vh 4vw;
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  .mask-bg {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(80vw, 80vh);
+    height: min(80vw, 80vh);
+    z-index: -1;
+    opacity: 0.16;
+    pointer-events: none;
+    filter: drop-shadow(0 0 40px rgba(232,106,143,0.4));
+  }
+  .mask-bg svg { width: 100%; height: 100%; display: block; }
+
+  pre.rose {
+    position: relative;
+    color: var(--rose);
+    font-size: clamp(6px, 1.15vw, 17px);
+    line-height: 1;
+    letter-spacing: 0.1em;
+    margin: 0;
+    user-select: none;
+    text-shadow: 3px 0 rgba(0,208,255,0.55), -3px 0 rgba(232,106,143,0.6), 0 0 22px rgba(232,106,143,0.3);
+  }
+
+  .divider {
+    display: flex; align-items: center; gap: 1.2rem;
+    color: var(--rose); opacity: 0.8;
+    font-size: clamp(11px, 1.4vw, 18px);
+    letter-spacing: 0.6em;
+  }
+  .divider::before, .divider::after {
+    content: ""; height: 1px; width: clamp(40px, 12vw, 160px);
+    background: linear-gradient(90deg, transparent, rgba(232,106,143,0.5), transparent);
+  }
+
+  .greetings { text-align: center; display: flex; flex-direction: column; gap: 1.5vh; }
+  .greetings-title {
+    font-size: clamp(12px, 1.5vw, 18px); font-weight: bold;
+    letter-spacing: 0.3em; text-transform: uppercase;
+    text-shadow: 2px 0 var(--cyan), -2px 0 var(--rose);
+  }
+  .greetings-names {
+    font-size: clamp(11px, 1.3vw, 16px); letter-spacing: 0.15em; color: var(--muted);
+    text-shadow: 1px 0 rgba(0,208,255,0.5), -1px 0 rgba(232,106,143,0.5);
+  }
+  .greetings-names span { color: var(--rose); }
+  .greetings-org {
+    font-size: clamp(14px, 1.8vw, 22px); font-weight: bold;
+    letter-spacing: 0.4em; color: var(--rose); text-transform: uppercase; margin-top: 1vh;
+    text-shadow: 2px 0 var(--cyan), -2px 0 rgba(255,255,255,0.3), 0 0 12px rgba(232,106,143,0.5);
+  }
+  footer {
+    margin-top: 2vh;
+    font-size: clamp(8px, 1vw, 11px); letter-spacing: 0.45em;
+    text-transform: uppercase; color: var(--muted); opacity: 0.6;
+  }
+
+  /* constant tiny jitter */
+  #stage > *:not(.mask-bg):not(.mask-flash) { animation: jitter 0.25s steps(2) infinite; }
+  @keyframes jitter {
+    0%   { transform: translate(0, 0); }
+    50%  { transform: translate(0.6px, -0.4px); }
+    100% { transform: translate(-0.6px, 0.4px); }
+  }
+
+  /* ===== click to enter ===== */
+  #gate {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1.2rem;
+    background: rgba(0,0,0,0.78);
+    color: var(--ink);
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-size: clamp(12px, 1.6vw, 18px);
+    text-align: center;
+    padding: 0 6vw;
+  }
+  #gate b { color: var(--rose); font-size: clamp(16px, 2.4vw, 30px); text-shadow: 3px 0 var(--cyan), -3px 0 var(--rose); }
+  #gate small { color: var(--muted); letter-spacing: 0.25em; font-size: 0.7em; }
+  #gate .blink { animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #gate.hide { display: none; }
+
+  /* white mask that flashes in during every glitch */
+  .mask-flash {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: min(92vw, 88vh);
+    height: min(92vw, 88vh);
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    opacity: 0;
+    pointer-events: none;
+    filter: drop-shadow(0 0 30px rgba(255,255,255,0.55));
+  }
+  .mask-flash svg { width: 100%; height: 100%; display: block; }
+
+  body { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+
+  /* ===== phones (portrait) and short landscape screens ===== */
+  @media (max-width: 760px), (max-height: 520px) {
+    #stage { padding: 4vh 4vw; gap: 3.5vh; }
+    /* size the dot logo so its full width always fits the screen */
+    pre.rose {
+      font-size: clamp(4px, min(2.35vw, 2.7vh), 17px);
+      text-shadow: 2px 0 rgba(0,208,255,0.55), -2px 0 rgba(232,106,143,0.6), 0 0 12px rgba(232,106,143,0.3);
     }
-
-    canvas {
-      display: block;
-      image-rendering: pixelated;
-      position: fixed;
-      top: 0;
-      left: 0;
-      z-index: 0;
-    }
-
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background-image: linear-gradient(rgba(0, 0, 0, 0.18) 50%, transparent 50%);
-      background-size: 100% 4px;
-      pointer-events: none;
-      animation: flick 0.16s steps(2, end) infinite;
-      z-index: 1;
-    }
-
-    @keyframes flick {
-      0%, 100% { opacity: 0.92; }
-      50% { opacity: 1; }
-    }
-
-    :root {
-      --font: 'Press Start 2P', monospace;
-      --ph-red: #ce1126;
-      --ph-yellow: #fcd116;
-      --ph-white: #ffffff;
-    }
-
-    /* ---- V MASK (binary-styled) ---- */
-    #mask-container {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 1;
-      pointer-events: none;
-      opacity: 0.32;
-      filter: grayscale(1) contrast(1.4) brightness(0.7);
-    }
-
-    #mask-container img {
-      display: block;
-      width: clamp(200px, 45vw, 520px);
-      height: auto;
-      image-rendering: pixelated;
-    }
-
-    /* binary rain canvas sits on top of the mask */
-    #binary-canvas {
-      position: fixed;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    /* ---- SWAYING STARS ---- */
-    .star-field {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 40vh;
-      pointer-events: none;
-      z-index: 3;
-    }
-
-    .sway-star {
-      position: absolute;
-      font-size: clamp(28px, 6vw, 80px);
-      line-height: 1;
-      font-family: var(--font);
-      filter: drop-shadow(0 0 15px currentColor) drop-shadow(0 0 35px currentColor);
-      animation: sway 3.6s ease-in-out infinite alternate;
-    }
-
-    .star-1 { color: #ff1a1a; top: 4vh;  left: 3vw;  animation-delay: 0s; }
-    .star-2 { color: #ff1a1a; top: 14vh; left: 8vw;  animation-delay: 0.9s; }
-    .star-3 { color: #ffffff; top: 4vh;  right: 3vw; animation-delay: 1.8s; }
-    .star-4 { color: #ffffff; top: 14vh; right: 8vw; animation-delay: 2.7s; }
-
-    @keyframes sway {
-      0%   { transform: translateY(0) rotate(-6deg) scale(1); }
-      50%  { transform: translateY(-10px) rotate(3deg) scale(1.06); }
-      100% { transform: translateY(4px) rotate(-4deg) scale(0.97); }
-    }
-
-    /* ---- CENTERED WRAPPER ---- */
-    .center-wrapper {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      pointer-events: none;
-      z-index: 2;
-      padding: 2vh 0;
-    }
-
-    #title {
-      font: 900 clamp(16px, 5vw, 72px)/1.2 var(--font);
-      color: var(--ph-red);
-      text-align: center;
-      animation: glitch 0.8s steps(1) infinite;
-      margin-bottom: 0.5vh;
-      max-width: 95vw;
-      letter-spacing: 2px;
-    }
-
-    #subtitle {
-      font: 700 clamp(10px, 2.5vw, 40px) var(--font);
-      color: var(--ph-yellow);
-      text-align: center;
-      margin-top: 0.5vh;
-      max-width: 95vw;
-      letter-spacing: 1px;
-    }
-
-    #subtitle2 {
-      font: 700 clamp(9px, 2vw, 34px) var(--font);
-      color: var(--ph-white);
-      text-align: center;
-      margin-top: 0.3vh;
-      max-width: 95vw;
-      letter-spacing: 1px;
-    }
-
-    #gameover {
-      font: 900 clamp(20px, 6vw, 90px) var(--font);
-      color: var(--ph-red);
-      text-align: center;
-      display: none;
-      animation: glitch 0.4s steps(1) infinite;
-      max-width: 95vw;
-      letter-spacing: 3px;
-    }
-
-    #again {
-      font: 700 clamp(8px, 1.8vw, 30px) var(--font);
-      color: var(--ph-yellow);
-      text-align: center;
-      margin-top: 1vh;
-      display: none;
-      max-width: 95vw;
-    }
-
-    #title, #subtitle, #subtitle2, #gameover, #again {
-      -webkit-text-stroke: 2px #000;
-      text-shadow:
-        2px 2px 0 #000, -2px 2px 0 #000,
-        2px -2px 0 #000, -2px -2px 0 #000,
-        0 2px 0 #000, 0 -2px 0 #000,
-        2px 0 0 #000, -2px 0 0 #000,
-        0 0 30px rgba(255, 0, 0, 0.55);
-      paint-order: stroke fill;
-    }
-
-    #nyan-container {
-      pointer-events: auto;
-      cursor: pointer;
-      margin-top: 1.2vh;
-      display: block;
-      max-width: 95vw;
-      transition: transform 0.2s;
-    }
-
-    #nyan-container:hover { transform: scale(1.03); }
-
-    #nyan-container img {
-      display: block;
-      image-rendering: pixelated;
-      width: clamp(110px, 22vw, 280px);
-      height: auto;
-      border: 3px solid var(--ph-red);
-      box-shadow:
-        0 0 25px rgba(255, 0, 0, 0.5),
-        0 0 50px rgba(0, 56, 168, 0.35);
-      border-radius: 8px;
-      margin: 0 auto;
-      transition: all 0.3s;
-    }
-
-    #nyan-container img:hover {
-      box-shadow:
-        0 0 45px rgba(255, 0, 0, 0.8),
-        0 0 90px rgba(0, 56, 168, 0.6);
-    }
-
-    #footer {
-      position: fixed;
-      bottom: 1.5vh;
-      left: 0;
-      width: 100%;
-      font: 400 clamp(6px, 0.9vw, 16px) var(--font);
-      color: #3a3a3a;
-      text-align: center;
-      pointer-events: none;
-      z-index: 2;
-      text-shadow: 0 0 12px rgba(255, 0, 0, 0.2);
-      padding: 0 2vw;
-      letter-spacing: 1.5px;
-    }
-
-    @keyframes glitch {
-      0%, 100% { transform: skewX(0deg); }
-      10% { transform: skewX(1.5deg); }
-      20% { transform: skewX(-1.5deg); }
-      30% { transform: skewX(0deg); }
-      40% { transform: skewX(0.8deg); }
-      50% { transform: skewX(-0.8deg); }
-      60% { transform: skewX(0deg); }
-    }
-
-    @media (max-width: 600px) {
-      #title { letter-spacing: 1px; }
-      #footer { font-size: 5px; }
-      .sway-star { font-size: clamp(22px, 10vw, 52px); }
-    }
-  </style>
+    .divider { font-size: 14px; gap: 0.8rem; }
+    .divider::before, .divider::after { width: 14vw; }
+    .greetings { gap: 1.2vh; padding: 0 2vw; }
+    .greetings-title { font-size: 14px; }
+    .greetings-names { font-size: 13px; line-height: 1.6; }
+    .greetings-org { font-size: 17px; letter-spacing: 0.3em; }
+    footer { font-size: 9px; letter-spacing: 0.35em; }
+    .mask-bg { width: 92vw; height: 92vw; max-height: 80vh; max-width: 80vh; }
+  }
+  @media (max-height: 520px) and (orientation: landscape) {
+    #stage { gap: 2vh; }
+    footer { display: none; }
+  }
+</style>
 </head>
-
 <body>
 
-  <!-- V for Vendetta mask (binary-styled) -->
-  <div id="mask-container">
-    <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimg-new.cgtrader.com%2Fitems%2F1848469%2Fdfe56a0cbc%2Fv-for-vendetta-mask-3d-model-blend.jpg&f=1&nofb=1&ipt=1f72c2a30e7fcb3b52f6aa152efce16be41aedd6b39946255abe5a07d93fd7c4&ipo=images"
-         alt="V for Vendetta mask"
-         draggable="false"
-         loading="lazy">
-  </div>
+  <!-- SVG filter: horizontal tearing/stretching -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="tear" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+      <feTurbulence id="tearNoise" type="fractalNoise" baseFrequency="0.0005 0.0005" numOctaves="1" seed="2" result="n"/>
+      <feDisplacementMap id="tearMap" in="SourceGraphic" in2="n" scale="0" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
 
-  <!-- Binary rain overlay (drawn by JS below) -->
-  <canvas id="binary-canvas"></canvas>
+  <canvas id="static"></canvas>
+  <div class="roll"></div>
 
-  <!-- 4 swaying stars -->
-  <div class="star-field" aria-hidden="true">
-    <div class="sway-star star-1">★</div>
-    <div class="sway-star star-2">★</div>
-    <div class="sway-star star-3">★</div>
-    <div class="sway-star star-4">★</div>
-  </div>
-
-  <div class="center-wrapper">
-    <div id="title">HACKED BY<br>DARK ROSE<br>PHILIPPINES</div>
-    <div id="subtitle">YOUR SYSTEM HAS BEEN</div>
-    <div id="subtitle2">COMPROMISED</div>
-    <div id="gameover">PWNED!</div>
-    <div id="again">click / tap – play again</div>
-
-    <div id="nyan-container">
-      <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fgifdb.com%2Fimages%2Fhigh%2Fnyan-cat-rbnlqzxbgvei37v8.gif&f=1&nofb=1&ipt=37e718caac8122c9297140d23137ceb9a04667f734bb13d33b9eac91c83493c8"
-           alt="Nyan Cat"
-           draggable="false"
-           loading="lazy">
+  <div id="stage">
+    <div class="mask-bg" aria-hidden="true">
+      <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="maskFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stop-color="#f9e6eb" stop-opacity="0.15"/>
+            <stop offset="50%" stop-color="#e86a8f" stop-opacity="0.08"/>
+            <stop offset="100%" stop-color="#0e0a0d" stop-opacity="0.3"/>
+          </linearGradient>
+          <linearGradient id="maskDark" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stop-color="#1f1116"/>
+            <stop offset="100%" stop-color="#090507"/>
+          </linearGradient>
+        </defs>
+        <path d="M250 40 C 320 40, 380 60, 400 110 C 420 160, 430 230, 410 310 C 390 390, 310 460, 250 480 C 190 460, 110 390, 90 310 C 70 230, 80 160, 100 110 C 120 60, 180 40, 250 40 Z" fill="url(#maskFill)" stroke="rgba(255,255,255,0.2)" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M 90 270 C 110 310, 150 330, 200 320" fill="none" stroke="rgba(232,106,143,0.2)" stroke-width="6" stroke-linecap="round"/>
+        <path d="M 410 270 C 390 310, 350 330, 300 320" fill="none" stroke="rgba(232,106,143,0.2)" stroke-width="6" stroke-linecap="round"/>
+        <path d="M140 150 Q 250 120 360 150" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4" stroke-linecap="round"/>
+        <path d="M 130 190 C 170 140, 230 160, 250 180 C 230 170, 180 160, 130 190 Z" fill="url(#maskDark)"/>
+        <path d="M 370 190 C 330 140, 270 160, 250 180 C 270 170, 320 160, 370 190 Z" fill="url(#maskDark)"/>
+        <path d="M 130 220 C 160 195, 210 195, 235 220 C 210 250, 160 250, 130 220 Z" fill="rgba(10,5,8,0.9)" stroke="rgba(255,255,255,0.2)" stroke-width="3"/>
+        <path d="M 370 220 C 340 195, 290 195, 265 220 C 290 250, 340 250, 370 220 Z" fill="rgba(10,5,8,0.9)" stroke="rgba(255,255,255,0.2)" stroke-width="3"/>
+        <path d="M 250 200 L 235 300 Q 250 320 265 300 Z" fill="rgba(10,5,8,0.6)"/>
+        <path d="M 215 310 Q 235 330 250 315 Q 265 330 285 310" fill="none" stroke="url(#maskDark)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 120 350 C 160 320, 220 330, 250 350 C 280 330, 340 320, 380 350 C 380 350, 390 390, 350 380 C 310 370, 280 365, 250 365 C 220 365, 190 370, 150 380 C 110 390, 120 350, 120 350 Z" fill="url(#maskDark)"/>
+        <path d="M 160 395 Q 250 430 340 395" fill="none" stroke="url(#maskDark)" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 225 415 Q 250 425 275 415 C 260 450, 250 480, 250 490 C 250 480, 240 450, 225 415 Z" fill="url(#maskDark)"/>
+      </svg>
     </div>
+
+    <!-- WHITE MASK: only visible during glitch bursts -->
+    <div class="mask-flash" id="maskFlash" aria-hidden="true">
+      <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="wFace" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#e9e4e6"/>
+          </linearGradient>
+        </defs>
+        <path d="M250 40 C 320 40, 380 60, 400 110 C 420 160, 430 230, 410 310 C 390 390, 310 460, 250 480 C 190 460, 110 390, 90 310 C 70 230, 80 160, 100 110 C 120 60, 180 40, 250 40 Z" fill="url(#wFace)" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/>
+        <ellipse cx="155" cy="290" rx="38" ry="26" fill="#e86a8f" opacity="0.55"/>
+        <ellipse cx="345" cy="290" rx="38" ry="26" fill="#e86a8f" opacity="0.55"/>
+        <path d="M140 150 Q 250 120 360 150" fill="none" stroke="#cfc7ca" stroke-width="4" stroke-linecap="round"/>
+        <path d="M 130 190 C 170 140, 230 160, 250 180 C 230 170, 180 160, 130 190 Z" fill="#0a0508"/>
+        <path d="M 370 190 C 330 140, 270 160, 250 180 C 270 170, 320 160, 370 190 Z" fill="#0a0508"/>
+        <path d="M 130 220 C 160 195, 210 195, 235 220 C 210 250, 160 250, 130 220 Z" fill="#0a0508"/>
+        <path d="M 370 220 C 340 195, 290 195, 265 220 C 290 250, 340 250, 370 220 Z" fill="#0a0508"/>
+        <path d="M 250 200 L 235 300 Q 250 320 265 300 Z" fill="#cfc7ca"/>
+        <path d="M 215 310 Q 235 330 250 315 Q 265 330 285 310" fill="none" stroke="#0a0508" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 120 350 C 160 320, 220 330, 250 350 C 280 330, 340 320, 380 350 C 380 350, 390 390, 350 380 C 310 370, 280 365, 250 365 C 220 365, 190 370, 150 380 C 110 390, 120 350, 120 350 Z" fill="#0a0508"/>
+        <path d="M 160 395 Q 250 430 340 395" fill="none" stroke="#0a0508" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 225 415 Q 250 425 275 415 C 260 450, 250 480, 250 490 C 250 480, 240 450, 225 415 Z" fill="#0a0508"/>
+      </svg>
+    </div>
+
+    <pre class="rose">··········    ··········    ··········    ···   ···
+···    ···    ···    ···    ···    ···    ···  ···
+···    ···    ···    ···    ···    ···    ··· ···
+···    ···    ··········    ··········    ······
+···    ···    ···    ···    ···   ···     ··· ···
+···    ···    ···    ···    ···    ···    ···  ···
+··········    ···    ···    ···    ···    ···   ···
+
+··········    ··········    ··········    ··········
+···    ···    ···    ···    ···         ···
+···    ···    ···    ···    ···         ···
+··········    ···    ···    ··········  ··········
+···  ···      ···    ···         ···   ···
+···   ···     ···    ···         ···   ···
+···    ···    ··········    ··········  ··········</pre>
+
+    <div class="divider">✿</div>
+
+    <div class="greetings">
+      <div class="greetings-title">GREETINGS:</div>
+      <div class="greetings-names">
+        <span>R1C4RD0</span> | <span>M4H4R00T$</span> | <span>K3ZUN1</span>
+      </div>
+      <div class="greetings-org">AND ALL ORG</div>
+    </div>
+
+    <footer>— dark rose —</footer>
   </div>
 
-  <div id="footer">DARK ROSE PHILIPPINES © 2026 — WE OWN YOUR NETWORK</div>
+  <div class="crt"></div>
 
-  <script>
-    /* ---------- SCARY BACKGROUND (p5) ---------- */
-    const flagColors = [
-      [0, 56, 168],
-      [206, 17, 38],
-      [252, 209, 22]
-    ];
-    let shift = 0;
-    let fogOffset = 0;
+<script>
+(() => {
+  /* ---------- live static canvas ---------- */
+  const cv = document.getElementById('static');
+  const ctx = cv.getContext('2d');
+  let img;
+  function sizeCanvas() {
+    const px = innerWidth < 760 ? 4 : 3; // chunkier, lighter static on phones
+    cv.width  = Math.max(80, Math.floor(innerWidth / px));
+    cv.height = Math.max(60, Math.floor(innerHeight / px));
+    img = ctx.createImageData(cv.width, cv.height);
+  }
+  sizeCanvas();
+  addEventListener('resize', sizeCanvas);
 
-    function setup() {
-      createCanvas(windowWidth, windowHeight);
-      noStroke();
-      frameRate(30);
+  function drawStatic() {
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = Math.random() * 255;
+      d[i] = d[i+1] = d[i+2] = v;
+      d[i+3] = 255;
     }
+    ctx.putImageData(img, 0, 0);
+  }
 
-    function draw() {
-      const topColor = color(8, 6, 10);
-      const bottomColor = color(2, 2, 6);
-      for (let y = 0; y < height; y += 4) {
-        const inter = map(y, 0, height, 0, 1);
-        fill(lerpColor(topColor, bottomColor, inter));
-        rect(0, y, width, 4);
-      }
+  /* ---------- tearing / stretching glitch ---------- */
+  const stage = document.getElementById('stage');
+  const noise = document.getElementById('tearNoise');
+  const map   = document.getElementById('tearMap');
+  const flash = document.getElementById('maskFlash');
+  let glitchUntil = 0;
+  let nextGlitch = performance.now() + 800;
+  let onGlitch = null;
 
-      fogOffset += 0.003;
-      for (let x = 0; x < width; x += 8) {
-        for (let y = 0; y < height; y += 8) {
-          const n = noise(x * 0.005 + fogOffset, y * 0.005 - fogOffset * 0.7);
-          if (n > 0.55) {
-            fill(60, 20, 40, map(n, 0.55, 0.8, 0, 28));
-            rect(x, y, 8, 8);
-          }
-        }
-      }
+  function startGlitch(now, big) {
+    const dur = big ? 220 + Math.random() * 260 : 60 + Math.random() * 140;
+    glitchUntil = now + dur;
+    document.body.classList.add('burst');
+    if (onGlitch) onGlitch(big, dur);
+  }
 
-      const stripeW = max(6, width / 80);
-      for (let x = 0; x < width; x += stripeW) {
-        const c = flagColors[(floor(x / stripeW) + shift) % flagColors.length];
-        fill(c[0] * 0.12, c[1] * 0.12, c[2] * 0.12, 120);
-        rect(x, 0, stripeW, height);
-      }
-      if (frameCount % 90 === 0) shift = (shift + 1) % flagColors.length;
-
-      const pulse = 0.7 + 0.3 * sin(frameCount * 0.015);
-      const glowRadius = min(width, height) * 0.28 * pulse;
-      for (let r = glowRadius; r > 0; r -= 6) {
-        fill(120, 5, 15, map(r, 0, glowRadius, 18, 0));
-        ellipse(width / 2, height / 2, r * 2, r * 2);
-      }
-      fill(180, 10, 20, 30);
-      ellipse(width / 2, height / 2, glowRadius * 0.25, glowRadius * 0.25);
-      fill(255, 40, 40, 12);
-      ellipse(width / 2, height / 2, glowRadius * 0.1, glowRadius * 0.1);
-
-      push();
-      translate(width / 2, height / 2);
-      rotate(frameCount * 0.001);
-      for (let i = 0; i < 12; i++) {
-        const angle = (i / 12) * TWO_PI;
-        const len = min(width, height) * 0.45;
-        stroke(40, 0, 5, 30);
-        strokeWeight(2);
-        line(cos(angle) * len * 0.3, sin(angle) * len * 0.3, cos(angle) * len, sin(angle) * len);
-      }
-      pop();
-
-      noStroke();
-      for (let i = 0; i < 40; i++) {
-        const px = noise(i * 100, frameCount * 0.002) * width * 1.2 - width * 0.1;
-        const py = noise(i * 200, frameCount * 0.0015) * height * 1.2 - height * 0.1;
-        fill(80, 70, 70, random(10, 30));
-        rect(px, py, random(1, 2.5), random(1, 2.5));
-      }
+  function updateGlitch(now) {
+    if (now >= nextGlitch) {
+      startGlitch(now, Math.random() < 0.3);
+      nextGlitch = now + 350 + Math.random() * 1800;
     }
-
-    function windowResized() { resizeCanvas(windowWidth, windowHeight); }
-
-    /* ---------- BINARY RAIN OVERLAY ---------- */
-    (function binaryRain() {
-      const canvas = document.getElementById('binary-canvas');
-      const ctx = canvas.getContext('2d');
-
-      let cols, drops;
-      const fontSize = 16;
-
-      function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        cols = Math.floor(canvas.width / fontSize);
-        drops = new Array(cols).fill(0).map(() => Math.random() * -100);
-      }
-      resize();
-      window.addEventListener('resize', resize);
-
-      function drawBinary() {
-        // slight fade so trails are visible but not too strong
-        ctx.fillStyle = 'rgba(5, 5, 5, 0.08)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.font = fontSize + 'px "Press Start 2P", monospace';
-        ctx.textBaseline = 'top';
-
-        for (let i = 0; i < cols; i++) {
-          const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize;
-          const y = drops[i] * fontSize;
-
-          // alternate red / white / dim gray for creepy binary feel
-          const r = Math.random();
-          if (r > 0.92) {
-            ctx.fillStyle = 'rgba(255, 40, 40, 0.85)';   // bright red
-          } else if (r > 0.85) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)'; // white
-          } else {
-            ctx.fillStyle = 'rgba(120, 120, 120, 0.55)'; // dim gray
-          }
-          ctx.fillText(char, x, y);
-
-          if (y > canvas.height && Math.random() > 0.975) {
-            drops[i] = 0;
-          }
-          drops[i] += 0.6 + Math.random() * 0.4;
-        }
-
-        requestAnimationFrame(drawBinary);
-      }
-      drawBinary();
-    })();
-
-    /* ---------- INTERACTION ---------- */
-    const container = document.getElementById('nyan-container');
-    const sub  = document.getElementById('subtitle');
-    const sub2 = document.getElementById('subtitle2');
-    const go   = document.getElementById('gameover');
-    const ag   = document.getElementById('again');
-    let state = 0;
-
-    container.onclick = () => { state = 1; toggle(); };
-    addEventListener('pointerdown', () => { if (state === 1) { state = 0; toggle(); } });
-
-    function toggle() {
-      const intro = state === 0;
-      container.style.display = intro ? 'block' : 'none';
-      sub.style.display  = intro ? 'block' : 'none';
-      sub2.style.display = intro ? 'block' : 'none';
-      go.style.display   = intro ? 'none' : 'block';
-      ag.style.display   = intro ? 'none' : 'block';
+    if (now < glitchUntil) {
+      // thin horizontal bands, huge horizontal displacement = stretched slices
+      const fy = 0.02 + Math.random() * 0.25;
+      noise.setAttribute('baseFrequency', '0.0004 ' + fy.toFixed(4));
+      noise.setAttribute('seed', String(Math.floor(Math.random() * 1000)));
+      map.setAttribute('scale', String(80 + Math.random() * 420));
+      const sx = 1 + (Math.random() < 0.5 ? Math.random() * 0.5 : 0);
+      const sk = (Math.random() - 0.5) * 20;
+      // white mask flickers in on most glitch frames, jumping sideways like a torn signal
+      flash.style.opacity = Math.random() < 0.75 ? (0.55 + Math.random() * 0.4).toFixed(2) : '0';
+      flash.style.transform = `translate(${(-50 + (Math.random() - 0.5) * 8).toFixed(1)}%, -50%)`;
+      stage.style.filter = 'url(#tear)'; // only during a glitch: keeps phones smooth
+      stage.style.transform = `scaleX(${sx.toFixed(3)}) skewX(${sk.toFixed(1)}deg)`;
+      stage.style.opacity = Math.random() < 0.2 ? '0.55' : '1';
+    } else {
+      // calm state: no filter at all, mask hidden
+      flash.style.opacity = '0';
+      stage.style.filter = '';
+      stage.style.transform = '';
+      stage.style.opacity = '1';
+      document.body.classList.remove('burst');
     }
-    toggle();
-  </script>
+  }
+
+  function loop(now) {
+    drawStatic();
+    updateGlitch(now);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ---------- "shhhhh" no-signal sound ---------- */
+  let ac, master, crackleGain, started = false, muted = false;
+
+  function makeNoise(seconds) {
+    const len = ac.sampleRate * seconds;
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  function startSound() {
+    if (started) return;
+    started = true;
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain();
+    master.gain.value = 0.0;
+    master.connect(ac.destination);
+
+    // main hiss: white noise, high-passed so it sounds like "shhhhh"
+    const src = ac.createBufferSource();
+    src.buffer = makeNoise(3);
+    src.loop = true;
+    const hp = ac.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 1500;
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 9000;
+    const hiss = ac.createGain();
+    hiss.gain.value = 0.35;
+    src.connect(hp); hp.connect(lp); lp.connect(hiss); hiss.connect(master);
+    src.start();
+
+    // faint low rumble / mains hum
+    const hum = ac.createOscillator();
+    hum.type = 'sawtooth'; hum.frequency.value = 50;
+    const humG = ac.createGain(); humG.gain.value = 0.015;
+    hum.connect(humG); humG.connect(master); hum.start();
+
+    // extra loud crackle that follows visual glitches
+    const src2 = ac.createBufferSource();
+    src2.buffer = makeNoise(2); src2.loop = true;
+    const bp = ac.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 3000; bp.Q.value = 0.6;
+    crackleGain = ac.createGain(); crackleGain.gain.value = 0;
+    src2.connect(bp); bp.connect(crackleGain); crackleGain.connect(master);
+    src2.start();
+
+    onGlitch = (big, dur) => {
+      if (!ac || muted) return;
+      const t = ac.currentTime;
+      crackleGain.gain.cancelScheduledValues(t);
+      crackleGain.gain.setValueAtTime(big ? 1.2 : 0.6, t);
+      crackleGain.gain.linearRampToValueAtTime(0, t + dur / 1000);
+    };
+
+    master.gain.setValueAtTime(0, ac.currentTime);
+    master.gain.linearRampToValueAtTime(0.28, ac.currentTime + 0.4);
+  }
+
+  // Auto-start: try immediately. If the browser blocks audio until the
+  // visitor interacts, the sound kicks in on the very first touch/click/key.
+  startSound();
+  startGlitch(performance.now(), true); // "tuning in" burst on load
+
+  // Ask the browser to start audio right now, and keep asking. Browsers only
+  // say yes when the page is allowed to autoplay (or after any first
+  // interaction), so we retry on every event that could count as one.
+  let runningSince = 0;
+  function markRunning() {
+    if (ac.state === 'running' && !runningSince) {
+      runningSince = performance.now();
+      startGlitch(runningSince, true); // burst the moment the sound starts
+    }
+  }
+  ac.onstatechange = markRunning;
+
+  function tryStart() {
+    if (ac.state !== 'running') ac.resume().then(markRunning).catch(() => {});
+    else markRunning();
+  }
+  tryStart();
+  addEventListener('load', tryStart);
+  addEventListener('focus', tryStart);
+  document.addEventListener('visibilitychange', tryStart);
+  // events browsers accept as "the user did something" (touchend/click matter on iPhone/Safari)
+  ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'keydown', 'wheel']
+    .forEach(ev => addEventListener(ev, tryStart, { passive: true, capture: true }));
+  setInterval(tryStart, 500);
+
+  // once the sound has been playing a moment: click anywhere to mute / unmute
+  document.body.addEventListener('click', () => {
+    if (!runningSince || performance.now() - runningSince < 800) return;
+    muted = !muted;
+    master.gain.linearRampToValueAtTime(muted ? 0 : 0.28, ac.currentTime + 0.15);
+  });
+})();
+</script>
 </body>
 </html>
